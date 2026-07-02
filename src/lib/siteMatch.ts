@@ -47,3 +47,21 @@ export function shouldApplyOnSite(
 ): boolean {
   return s.globalEnabled && !isWhitelisted(s, hostname) && !isPaused(s, hostname);
 }
+
+// YouTube muafiyetinin kapsadığı ana domainler (subdomainler zincirle eşleşir).
+export const YT_EXEMPT_DOMAINS = [
+  'youtube.com',
+  'youtube-nocookie.com',
+  'youtubekids.com',
+] as const;
+
+export function isYouTubeHost(hostname: string): boolean {
+  const chain = chainOf(hostname);
+  return YT_EXEMPT_DOMAINS.some((d) => chain.has(d));
+}
+
+// YouTube'da kozmetik/scriptlet uygulanmasın mı? (reklam player'da işlenir;
+// engelleme/gizleme/adPlacements-silme anti-adblock tespitini tetikliyor)
+export function isYouTubeExempt(s: FairBlockSettings, hostname: string): boolean {
+  return s.youtubeExempt && isYouTubeHost(hostname);
+}

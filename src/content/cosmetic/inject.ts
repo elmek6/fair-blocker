@@ -3,7 +3,7 @@
 // Whitelist/pause/genel-kapalı ya da kozmetik-kapalı ise hiçbir şey yapmaz.
 
 import { getSettings } from '../../lib/storage';
-import { shouldApplyOnSite } from '../../lib/siteMatch';
+import { shouldApplyOnSite, isYouTubeExempt } from '../../lib/siteMatch';
 import { domainAndParents } from '../../lib/domainUtils';
 import { cosmeticShardOf } from '../../lib/hash';
 
@@ -17,6 +17,8 @@ async function run(): Promise<void> {
   const settings = await getSettings();
   if (!settings.cosmeticEnabled) return;
   if (!shouldApplyOnSite(settings, hostname)) return;
+  // YouTube: reklam kutusu gizleme anti-adblock tespitini tetikliyor — muaf.
+  if (isYouTubeExempt(settings, hostname)) return;
 
   const selectors = new Set<string>();
 

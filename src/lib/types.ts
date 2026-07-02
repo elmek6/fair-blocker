@@ -35,7 +35,7 @@ export interface ScriptletSettings {
   scriptletEnabled: Record<string, boolean>;
 }
 
-export type YouTubeAdMode = 'off' | 'speed' | 'skip';
+export type YouTubeAdMode = 'off' | 'button' | 'autospeed' | 'skip';
 
 export interface FairBlockSettings {
   globalEnabled: boolean;
@@ -47,8 +47,17 @@ export interface FairBlockSettings {
   /** İzin verilen reklam seviyesi (kademeli adalet): 0=hiç ... 3=sadece izleyici+zararlı */
   fairAdLevel: number;
 
-  /** YouTube reklamı: kapalı / hızlandır (fair — impression sayılır) / atla */
+  /** YouTube reklamı: kapalı / butonla hızlandır (fair) / otomatik hızlandır / atla */
   youtubeAdMode: YouTubeAdMode;
+
+  /**
+   * YouTube'u ağ/kozmetik/scriptlet katmanlarından muaf tut (varsayılan: açık).
+   * YouTube reklam isteklerinin engellendiğini, adPlacements'ın silindiğini ve
+   * istatistik ping'lerinin gitmediğini TESPİT EDİP oynatmayı kilitliyor.
+   * Muafiyet: reklam yüklenir + impression sayılır; reklam yalnız player
+   * seviyesinde (adSpeedup) işlenir — anti-adblock uyarısı tetiklenmez.
+   */
+  youtubeExempt: boolean;
 
   whitelist: WhitelistEntry[];
   pauses: PauseEntry[];
@@ -67,7 +76,8 @@ export const DEFAULT_SETTINGS: FairBlockSettings = {
   cosmeticMutationWatcherEnabled: false,
   scriptletsEnabled: true,
   fairAdLevel: 0,
-  youtubeAdMode: 'speed',
+  youtubeAdMode: 'button',
+  youtubeExempt: true,
   defaultPauseDurationMs: 60 * 60 * 1000, // 1 saat
 
   whitelist: [],

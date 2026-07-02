@@ -38,7 +38,7 @@ export function onSettingsChanged(
 function mergeDefaults(
   stored: Partial<FairBlockSettings> | undefined,
 ): FairBlockSettings {
-  return {
+  const merged: FairBlockSettings = {
     ...DEFAULT_SETTINGS,
     ...(stored ?? {}),
     scriptletSettings: {
@@ -46,4 +46,7 @@ function mergeDefaults(
       ...(stored?.scriptletSettings ?? {}),
     },
   };
+  // Eski 'speed' (otomatik 16x) değeri 'button' akışıyla değiştirildi; okurken taşı.
+  if ((merged.youtubeAdMode as string) === 'speed') merged.youtubeAdMode = 'button';
+  return merged;
 }

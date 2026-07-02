@@ -1,21 +1,32 @@
-// YouTube reklamlarını oynatıcı seviyesinde işler (filtreyle güvenilir engellenemez).
+// YouTube reklamlarını oynatıcı seviyesinde işler (filtreyle güvenilir engellenemez;
+// ağ/kozmetik/scriptlet katmanları youtubeExempt ile muaf — anti-adblock tespiti önlenir).
 // Mod:
-//   'speed' (fair): reklam 16x + sessiz OYNAR -> impression sayılır, üretici kazanır, ~1 sn kayıp
-//   'skip': reklamı sona sarar / skip'e basar -> pratikte atlanır
-//   'off': dokunmaz
+//   'button' (fair, varsayılan): reklam NORMAL oynar; player'da "⏩ Hızlı geç" butonu
+//       belirir. Basılırsa o reklam arası sessiz + hızlı oynar (impression yine sayılır).
+//   'autospeed': her reklamı otomatik hızlı + sessiz oynatır (tespit riski daha yüksek).
+//   'skip': reklamı sona sarar / skip'e basar -> pratikte atlanır.
+//   'off': dokunmaz.
 // Kısayol Alt+S: o anki reklamı hemen atla.
 //
+// Tespit notları: skip butonuna yalnız GÖRÜNÜR olduğunda basılır (görünmeden
+// programatik tık = bot sinyali); hızlandırma 'button' modunda kullanıcı jestiyle
+// başlar, ilk reklam izlenimi normal başladığı için zamanlama daha az şüpheli.
+//
 // YouTube bir SPA olduğundan tam navigasyon olayına güvenilemez -> kalıcı interval + DOM.
-// Isolated world yeterli: playbackRate/muted/class/skip hepsi paylaşılan DOM.
+// Isolated world yeterli: playbackRate/muted/class/skip/overlay hepsi paylaşılan DOM.
 
 import { getSettings, onSettingsChanged } from '../../lib/storage';
 import { shouldApplyOnSite } from '../../lib/siteMatch';
 import type { FairBlockSettings, YouTubeAdMode } from '../../lib/types';
 
-let mode: YouTubeAdMode = 'speed';
+const SPEED_RATE = 16;
+const BTN_ID = 'fair-block-yt-skip';
+
+let mode: YouTubeAdMode = 'button';
 let siteActive = true;
 let weMuted = false;
 let weSped = false;
+let engaged = false; // 'button' modunda: kullanıcı bu reklam arası için hızlandırmayı başlattı
 
 function refreshState(s: FairBlockSettings): void {
   mode = s.youtubeAdMode;
@@ -29,58 +40,108 @@ function mainVideo(): HTMLVideoElement | null {
   );
 }
 
+function playerEl(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('.html5-video-player');
+}
+
 function adShowing(): boolean {
-  const p = document.querySelector('.html5-video-player');
+  const p = playerEl();
   return (
     !!p &&
     (p.classList.contains('ad-showing') || p.classList.contains('ad-interrupting'))
   );
 }
 
-function skipButton(): HTMLElement | null {
-  return document.querySelector<HTMLElement>(
+// Skip butonu yalnız gerçekten görünür/tıklanabilirse döner (görünmezken
+// programatik tıklama tespit sinyali üretebilir).
+function visibleSkipButton(): HTMLElement | null {
+  const btn = document.querySelector<HTMLElement>(
     '.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button',
   );
+  return btn && btn.offsetWidth > 0 && btn.offsetHeight > 0 ? btn : null;
 }
 
 function seekToEnd(v: HTMLVideoElement): void {
   if (Number.isFinite(v.duration) && v.duration > 0) v.currentTime = v.duration;
 }
 
+function speedUp(video: HTMLVideoElement): void {
+  if (!video.muted) {
+    video.muted = true;
+    weMuted = true;
+  }
+  if (video.playbackRate < SPEED_RATE) {
+    video.playbackRate = SPEED_RATE;
+    weSped = true;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Overlay buton ('button' modu): reklam sırasında player'a eklenir
+ * ------------------------------------------------------------------ */
+function ensureOverlay(): void {
+  if (document.getElementById(BTN_ID)) return;
+  const player = playerEl();
+  if (!player) return;
+  const btn = document.createElement('button');
+  btn.id = BTN_ID;
+  btn.type = 'button';
+  btn.textContent = '⏩ Reklamı hızlı geç';
+  btn.style.cssText =
+    'position:absolute;right:12px;bottom:64px;z-index:9999;' +
+    'padding:8px 14px;border:0;border-radius:18px;cursor:pointer;' +
+    'background:rgba(0,0,0,.72);color:#fff;font:500 13px/1.2 Roboto,Arial,sans-serif;' +
+    'opacity:.92;';
+  btn.addEventListener('mouseenter', () => (btn.style.opacity = '1'));
+  btn.addEventListener('mouseleave', () => (btn.style.opacity = '.92'));
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    engaged = true;
+    const v = mainVideo();
+    if (v && adShowing()) speedUp(v);
+    btn.remove(); // görev tamam; reklam arası bitene dek engaged sürer
+  });
+  player.appendChild(btn);
+}
+
+function removeOverlay(): void {
+  document.getElementById(BTN_ID)?.remove();
+}
+
+/* ------------------------------------------------------------------ *
+ * Ana döngü
+ * ------------------------------------------------------------------ */
 function tick(): void {
   const video = mainVideo();
   if (!video) return;
 
   if (!siteActive || mode === 'off') {
-    restore(video);
+    endAdBreak(video);
     return;
   }
 
   if (adShowing()) {
-    const btn = skipButton();
-    if (btn) {
-      btn.click(); // skip mevcutsa her modda bas (en temiz)
+    if (mode === 'skip') {
+      const btn = visibleSkipButton();
+      if (btn) btn.click();
+      else seekToEnd(video);
       return;
     }
-    if (mode === 'skip') {
-      seekToEnd(video);
-    } else {
-      // speed (fair): reklam oynar ama hızlı ve sessiz
-      if (!video.muted) {
-        video.muted = true;
-        weMuted = true;
-      }
-      if (video.playbackRate < 16) {
-        video.playbackRate = 16;
-        weSped = true;
-      }
+    if (mode === 'button' && !engaged) {
+      ensureOverlay();
+      return; // reklam normal oynasın — fair
     }
+    // autospeed veya kullanıcı butona bastı: hızlı + sessiz; skip çıkınca bas
+    speedUp(video);
+    visibleSkipButton()?.click();
   } else {
-    restore(video);
+    endAdBreak(video);
   }
 }
 
-function restore(video: HTMLVideoElement): void {
+function endAdBreak(video: HTMLVideoElement): void {
+  engaged = false;
+  removeOverlay();
   if (weSped && video.playbackRate !== 1) video.playbackRate = 1;
   weSped = false;
   if (weMuted) {
@@ -95,7 +156,7 @@ function onKey(e: KeyboardEvent): void {
   if (!siteActive) return;
   const v = mainVideo();
   if (!v || !adShowing()) return;
-  const btn = skipButton();
+  const btn = visibleSkipButton();
   if (btn) btn.click();
   else seekToEnd(v);
 }

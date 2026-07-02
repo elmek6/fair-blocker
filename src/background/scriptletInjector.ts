@@ -9,7 +9,7 @@
 
 import { getSettings } from '../lib/storage';
 import { extractHostname, domainAndParents } from '../lib/domainUtils';
-import { shouldApplyOnSite } from '../lib/siteMatch';
+import { shouldApplyOnSite, isYouTubeExempt } from '../lib/siteMatch';
 import { SCRIPTLETS } from '../content/scriptlets/catalog/index';
 
 interface ScriptletInvocation {
@@ -49,6 +49,9 @@ async function injectFor(
   const settings = await getSettings();
   if (!settings.scriptletsEnabled) return;
   if (!shouldApplyOnSite(settings, hostname)) return;
+  // YouTube: adPlacements/adSlots silme (set-constant/json-prune) anti-adblock
+  // tespitinin ana tetikleyicisi — muaf; reklam player'da (adSpeedup) işlenir.
+  if (isYouTubeExempt(settings, hostname)) return;
 
   const registry = await getRegistry();
   const candidates = [hostname, ...domainAndParents(hostname), '*'];

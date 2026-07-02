@@ -15,7 +15,9 @@ import {
   PRIORITY_USER_ALLOW,
   PRIORITY_USER_PAUSE,
   PRIORITY_GLOBAL_OFF,
+  PRIORITY_SITE_EXEMPT,
   ID_GLOBAL_OFF,
+  ID_YT_EXEMPT,
   ID_BAND_WHITELIST,
   ID_BAND_BLACKLIST,
   MAX_DYNAMIC_RULES,
@@ -23,6 +25,7 @@ import {
   MAX_ENABLED_STATIC_RULESETS,
 } from '../lib/constants';
 import { whitelistRuleId, blacklistRuleId, pauseSessionRuleId } from '../lib/ruleIdAllocator';
+import { YT_EXEMPT_DOMAINS } from '../lib/siteMatch';
 import { loadListMeta, isListEnabled } from '../lib/listMeta';
 import type { FairBlockSettings } from '../lib/types';
 
@@ -54,10 +57,26 @@ function globalOffRule(): DnrRule {
 /* ------------------------------------------------------------------ *
  * İstenen kural kümeleri
  * ------------------------------------------------------------------ */
+// YouTube muafiyeti: YT sayfalarındaki hiçbir isteği engelleme. Reklamın
+// yüklenmesi + api/stats/ads vb. ping'lerin gitmesi anti-adblock tespitini
+// önler; reklam player seviyesinde (adSpeedup) işlenir.
+function ytExemptRule(): DnrRule {
+  return {
+    id: ID_YT_EXEMPT,
+    priority: PRIORITY_SITE_EXEMPT,
+    action: { type: 'allowAllRequests' },
+    condition: {
+      requestDomains: [...YT_EXEMPT_DOMAINS],
+      resourceTypes: ['main_frame', 'sub_frame'],
+    },
+  };
+}
+
 export function desiredDynamicRules(s: FairBlockSettings): DnrRule[] {
   const rules: DnrRule[] = [];
 
   if (!s.globalEnabled) rules.push(globalOffRule());
+  if (s.youtubeExempt) rules.push(ytExemptRule());
 
   s.whitelist.forEach((e, i) => {
     rules.push(allowAllOnDomain(whitelistRuleId(i), e.domain, PRIORITY_USER_ALLOW));
@@ -90,7 +109,8 @@ function isManagedDynamicId(id: number): boolean {
   return (
     (id >= ID_BAND_WHITELIST.start && id <= ID_BAND_WHITELIST.end) ||
     (id >= ID_BAND_BLACKLIST.start && id <= ID_BAND_BLACKLIST.end) ||
-    id === ID_GLOBAL_OFF
+    id === ID_GLOBAL_OFF ||
+    id === ID_YT_EXEMPT
   );
 }
 

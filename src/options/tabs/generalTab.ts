@@ -51,23 +51,27 @@ export async function renderGeneralTab(container: HTMLElement): Promise<void> {
   );
 
   container.appendChild(card);
-  container.appendChild(renderYouTubeCard(s.youtubeAdMode));
+  container.appendChild(renderYouTubeCard(s));
 }
 
 async function patch(p: Partial<FairBlockSettings>): Promise<void> {
   await sendMessage({ type: 'PATCH_SETTINGS', patch: p });
 }
 
-function renderYouTubeCard(current: YouTubeAdMode): HTMLElement {
+function renderYouTubeCard(s: FairBlockSettings): HTMLElement {
+  const current = s.youtubeAdMode;
   const card = document.createElement('div');
   card.className = 'card';
   card.innerHTML =
-    '<h2>YouTube reklamları</h2><p class="muted">Filtreyle güvenilir engellenemez; oynatıcıda işlenir. ' +
-    'Hızlandır = reklam 16x sessiz oynar (impression sayılır — fair). Atla = reklamı sona sarar. ' +
-    'Kısayol: <strong>Alt+S</strong> o anki reklamı atlar.</p>';
+    '<h2>YouTube</h2><p class="muted">YouTube reklamları filtreyle güvenilir engellenemez; oynatıcıda işlenir. ' +
+    '<strong>Butonla hızlandır</strong> (fair, önerilen): reklam normal başlar, player\'da çıkan '
+    + '"⏩ Reklamı hızlı geç" butonuna basınca sessiz + 16x oynar (impression sayılır). ' +
+    'Otomatik hızlandır: her reklamı kendiliğinden hızlandırır (tespit riski daha yüksek). ' +
+    'Atla: reklamı sona sarar. Kısayol: <strong>Alt+S</strong> o anki reklamı atlar.</p>';
   const opts: { v: YouTubeAdMode; label: string }[] = [
     { v: 'off', label: 'Kapalı' },
-    { v: 'speed', label: 'Hızlandır (fair)' },
+    { v: 'button', label: 'Butonla hızlandır (fair)' },
+    { v: 'autospeed', label: 'Otomatik hızlandır' },
     { v: 'skip', label: 'Atla' },
   ];
   const seg = document.createElement('div');
@@ -85,6 +89,20 @@ function renderYouTubeCard(current: YouTubeAdMode): HTMLElement {
     seg.appendChild(b);
   }
   card.appendChild(seg);
+
+  card.appendChild(
+    toggleRow(
+      'YouTube\'u engelleme katmanlarından muaf tut (önerilen — "ad blocker tespit edildi" uyarısını önler)',
+      s.youtubeExempt,
+      (v) => patch({ youtubeExempt: v }),
+    ),
+  );
+  const note = document.createElement('p');
+  note.className = 'muted';
+  note.textContent =
+    'Muafiyet kapatılırsa filtre listeleri YouTube reklam isteklerini/adPlacements verisini ' +
+    'engeller; YouTube bunu tespit edip oynatmayı kilitleyebilir.';
+  card.appendChild(note);
   return card;
 }
 
