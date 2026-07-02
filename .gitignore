@@ -1,0 +1,23 @@
+# bağımlılıklar
+node_modules/
+
+# yerel taşınabilir Node runtime (build-zamanı aracı, repoya girmez)
+.tooling/
+
+# build çıktısı
+dist/
+
+# compiler tarafından üretilen filtre çıktıları (kaynak değil, türetilmiş)
+filters/generated/
+public/rulesets/
+public/meta/
+public/cosmetic/
+public/scriptlets/
+
+# compiler indirme önbelleği
+tools/compiler/.cache/
+
+# çeşitli
+*.log
+.DS_Store
+Thumbs.db

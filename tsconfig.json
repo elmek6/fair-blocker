@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["chrome", "node"],
+    "skipLibCheck": true,
+
+    /* katı mod */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+
+    /* modül/emit */
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* yol takma adları (plandaki @lib / @filters) — TS6+ baseUrl'süz, tsconfig konumuna göre çözülür */
+    "paths": {
+      "@lib/*": ["./src/lib/*"],
+      "@filters/*": ["./filters/generated/*"]
+    }
+  },
+  "include": ["src", "tools", "vite.config.ts", "manifest.config.ts"]
+}
